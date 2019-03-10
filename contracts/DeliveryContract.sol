@@ -16,14 +16,14 @@ pragma solidity >=0.4.25 <0.6.0;
 contract GeoHelpers {
   // Since we are working with ints we suggest passing in nanodegrees, which ~= 0.1 mm
   // But it will work with any consistent units, so long as they are ints.
-  function boundingBoxBuffer (int[2] memory _point, int _buffer) public pure returns (int[2][2] memory) {
+  function boundingBoxBuffer (int[2] memory _point, int _buffer) internal pure returns (int[2][2] memory) {
       int[2] memory ll = [_point[0] - _buffer, _point[1] - _buffer];
       int[2] memory ur = [_point[0] + _buffer, _point[1] + _buffer];
 
       return ([ll, ur]);
   }
 
-  function pointInBbox (int[2] memory _point, int[2][2] memory _bbox) public pure returns (bool) {
+  function pointInBbox (int[2] memory _point, int[2][2] memory _bbox) internal pure returns (bool) {
       require(_bbox[0][0] < _bbox[1][0] && _bbox[0][1] < _bbox[1][1]);
       if ((_point[0] > _bbox[0][0]) && (_point[0] < _bbox[1][0]) && (_point[1] > _bbox[1][0]) && (_point[1] < _bbox[1][1]) ) {
           return true;
@@ -142,10 +142,11 @@ contract DeliveryContract is GeoHelpers {
     uint _amount,
     uint _penalityAmount,
     uint _penalityUnit
-  ) public {
+  ) public payable {
     // note: we don't have to instantiate all struct variables at declaration,
     // we can initialize a struct variable and only declare some of its inner
     // variables
+    // important: transaction functions must include a `payable`
     Contract memory cont = Contract({
         recipient: _recipient,
         provider: _provider,
@@ -160,7 +161,7 @@ contract DeliveryContract is GeoHelpers {
         providerShare: 0
     });
     contracts[lastContractId++] = cont;
-    // methods which modify the state of the blockchain, require a transaction
+    // methods which modify the state of the blockchain/require a transaction
     // can't return a value (maybe because it's not immediate), instead it gets
     // a transaction id. To get a feedback on the transaction, 1) call a public
     // view function after having received the transaction id, or 2) emit an
@@ -170,7 +171,7 @@ contract DeliveryContract is GeoHelpers {
 
   // called programmatically by IoT
   // _pos coords in nanodegrees, i.e. gps degrees * 10^9 with the remaining digits truncated (e.g. with Math.floor in JS)
-  function recordNewCoor(uint _contractId, int[2] memory _pos, uint _time) public contractIncomplete(_contractId) {
+  function recordNewCoor(uint _contractId, int[2] memory _pos, uint _time) public payable contractIncomplete(_contractId) {
     checkCompletion(_contractId, _pos, _time);
   }
 
