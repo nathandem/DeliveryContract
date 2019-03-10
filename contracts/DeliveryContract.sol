@@ -35,7 +35,8 @@ contract GeoHelpers {
 
 contract DeliveryContract is GeoHelpers {
 
-  event ReachCompletionPaid(uint _contractId);
+  event NewContract(address recipient, address provider, uint start, uint contractId);
+  event ReachCompletionPaid(uint contractId);
   // SignificantStepPassed
 
   int boudingBoxBufferSize = 100000;  // in nanodegrees, to equate 10 meters
@@ -46,7 +47,7 @@ contract DeliveryContract is GeoHelpers {
     address provider;  // the one who will receive the payment
 
     // Criteria for a good execution of the contract
-    uint start;  // unix time
+    uint start;  // time at the agreement of the contract, a unix timestamp
     uint expectedCompletion;  // delta from start in seconds
     int[2] destination;  // in nanodegrees
 
@@ -65,7 +66,8 @@ contract DeliveryContract is GeoHelpers {
 
   }
 
-  Contract[] contracts;  // a contract can be accessed by its id
+  mapping(uint => Contract) contracts;
+  uint lastContractId = 0;
 
 
   // modifiers
@@ -136,11 +138,14 @@ contract DeliveryContract is GeoHelpers {
     address _provider,
     uint _start,
     uint _expectedCompletion,
-    int[2] calldata _destination,
+    int[2] memory _destination,
     uint _amount,
     uint _penalityAmount,
     uint _penalityUnit
-  ) external returns (uint) {
+  ) public {
+    // note: we don't have to instantiate all struct variables at declaration,
+    // we can initialize a struct variable and only declare some of its inner
+    // variables
     Contract memory cont = Contract({
         recipient: _recipient,
         provider: _provider,
@@ -154,8 +159,13 @@ contract DeliveryContract is GeoHelpers {
         recipientShare: 0,
         providerShare: 0
     });
-    uint contractId = contracts.push(cont) - 1;
-    return contractId;
+    contracts[lastContractId++] = cont;
+    // methods which modify the state of the blockchain, require a transaction
+    // can't return a value (maybe because it's not immediate), instead it gets
+    // a transaction id. To get a feedback on the transaction, 1) call a public
+    // view function after having received the transaction id, or 2) emit an
+    // event that our client listen to (like below)
+    emit NewContract(_recipient, _provider, _start, lastContractId - 1);
   }
 
   // called programmatically by IoT
